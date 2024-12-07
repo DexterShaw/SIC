@@ -22,6 +22,23 @@ uint8_t calculateCRC8(uint8_t *data, int length) {
     return crc;
 }
 
+// Funkcja wysyłająca heartbeat
+void sendHeartbeat(uint8_t ID) {
+    uint8_t heartbeat[8] = {0};
+    heartbeat[0] = ID;       // ID
+    heartbeat[1] = NODE_ID;  // SRC
+    heartbeat[2] = 0x07;     // DEST
+    heartbeat[3] = 0x01;     // Function Code (Heartbeat)
+    heartbeat[4] = 0;        // Data
+    heartbeat[5] = 0;
+    heartbeat[6] = 0;        // Path
+    heartbeat[7] = 0;        // Reserved for checksum
+    uint8_t checksum = calculateCRC8(heartbeat, 7);
+    nodeSerial.write(heartbeat, 7);
+    nodeSerial.write(checksum);
+    Serial.println("Heartbeat sent.");
+}
+
 // Funkcja do odbierania i przetwarzania ramki
 void processFrame() {
     if (nodeSerial.available() >= 8) {  // Ramka musi mieć co najmniej 8 bajtów
@@ -75,5 +92,15 @@ void setup() {
 }
 
 void loop() {
-    processFrame();  // Przetwarzanie przychodzących ramek
+    // Przetwarzanie ramek
+    processFrame();
+
+    // Wysyłanie heartbeat co 5 sekund
+    static unsigned long lastHeartbeat = 0;
+    static uint8_t packetID = 1;
+    if (millis() - lastHeartbeat >= 5000) {
+        sendHeartbeat(packetID);
+        packetID = packetID + 1;
+        lastHeartbeat = millis();
+    }
 }
